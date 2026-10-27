@@ -1,0 +1,8 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# OS and build artifacts
+*.pdb
+Thumbs.db
