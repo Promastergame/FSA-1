@@ -33,6 +33,8 @@ var g_active_fmt: config.Format = .png;
 var g_switch_anim: f32 = 0.0;
 
 const TIMER_ANIM: usize = 1;
+const TIMER_CARET: usize = 2;
+var g_caret_visible: bool = true;
 
 // GDI Colors (0x00BBGGRR)
 const COL_BG: w.DWORD = 0x00171414;
@@ -126,6 +128,8 @@ fn showAndFocus(hwnd: w.HWND, width: i32, height: i32) void {
         _ = w.AttachThreadInput(fg_tid, cur_tid, 0);
     }
 
+    g_caret_visible = true;
+    _ = w.SetTimer(hwnd, TIMER_CARET, 530, null);
     _ = w.InvalidateRect(hwnd, null, 0);
 }
 
@@ -133,6 +137,7 @@ fn hideOverlay() void {
     g_mode = .none;
     if (g_hwnd) |hwnd| {
         _ = w.KillTimer(hwnd, TIMER_ANIM);
+        _ = w.KillTimer(hwnd, TIMER_CARET);
         _ = w.ShowWindow(hwnd, w.SW_HIDE);
     }
 }
@@ -260,6 +265,7 @@ fn drawText(hdc: w.HDC, text: []const u16, rc: w.RECT, color: w.DWORD, font: ?w.
 }
 
 fn drawCaret(hdc: w.HDC, text: []const u16, base_x: i32, top_y: i32, bottom_y: i32, max_x: i32) void {
+    if (!g_caret_visible) return;
     var cx = base_x;
     if (text.len > 0) {
         if (g_font_reg) |f| _ = w.SelectObject(hdc, @ptrCast(f));
@@ -309,8 +315,8 @@ fn paintPaste(hdc: w.HDC) void {
 
     var i: usize = 0;
     while (i < 4) : (i += 1) {
-        const x1: i32 = 12 + @as(i32, @intCast(i)) * 58;
-        const rc_pill = w.RECT{ .left = x1, .top = 60, .right = x1 + 52, .bottom = 90 };
+        const x1: i32 = 12 + @as(i32, @intCast(i)) * 56;
+        const rc_pill = w.RECT{ .left = x1, .top = 60, .right = x1 + 50, .bottom = 90 };
         const is_sel = (@intFromEnum(g_active_fmt) == i);
         const fill = if (is_sel) COL_ACCENT else COL_CARD;
         const bord = if (is_sel) COL_ACCENT_LIGHT else COL_BORDER;
@@ -357,8 +363,8 @@ fn paintSettings(hdc: w.HDC) void {
 
     var i: usize = 0;
     while (i < 4) : (i += 1) {
-        const x1: i32 = 114 + @as(i32, @intCast(i)) * 64;
-        const rc_pill = w.RECT{ .left = x1, .top = 126, .right = x1 + 58, .bottom = 158 };
+        const x1: i32 = 114 + @as(i32, @intCast(i)) * 60;
+        const rc_pill = w.RECT{ .left = x1, .top = 126, .right = x1 + 54, .bottom = 158 };
         const is_sel = (@intFromEnum(g_active_fmt) == i);
         const fill = if (is_sel) COL_ACCENT else COL_CARD;
         const bord = if (is_sel) COL_ACCENT_LIGHT else COL_BORDER;
@@ -372,8 +378,8 @@ fn paintSettings(hdc: w.HDC) void {
     const lang_names = [_][]const u16{ L("Auto"), L("EN"), L("RU") };
     var l: usize = 0;
     while (l < 3) : (l += 1) {
-        const x1: i32 = 114 + @as(i32, @intCast(l)) * 52;
-        const rc_lp = w.RECT{ .left = x1, .top = 168, .right = x1 + 46, .bottom = 200 };
+        const x1: i32 = 114 + @as(i32, @intCast(l)) * 50;
+        const rc_lp = w.RECT{ .left = x1, .top = 168, .right = x1 + 44, .bottom = 200 };
         const is_sel = (@intFromEnum(g_cfg.lang) == l);
         drawRoundBox(hdc, rc_lp, 8, if (is_sel) COL_ACCENT else COL_CARD, if (is_sel) COL_ACCENT_LIGHT else COL_BORDER);
         drawText(hdc, lang_names[l], rc_lp, if (is_sel) COL_TEXT else COL_SUBTEXT, g_font_bold, w.DT_CENTER);
@@ -392,8 +398,8 @@ fn handleClick(hwnd: w.HWND, x: i32, y: i32) void {
     if (g_mode == .paste) {
         var i: usize = 0;
         while (i < 4) : (i += 1) {
-            const x1: i32 = 12 + @as(i32, @intCast(i)) * 58;
-            if (ptInRect(x, y, x1, 60, x1 + 52, 90)) {
+            const x1: i32 = 12 + @as(i32, @intCast(i)) * 56;
+            if (ptInRect(x, y, x1, 60, x1 + 50, 90)) {
                 g_active_fmt = @enumFromInt(@as(u32, @intCast(i)));
                 updatePreview();
                 _ = w.InvalidateRect(hwnd, null, 0);
@@ -413,8 +419,8 @@ fn handleClick(hwnd: w.HWND, x: i32, y: i32) void {
         }
         var i: usize = 0;
         while (i < 4) : (i += 1) {
-            const x1: i32 = 114 + @as(i32, @intCast(i)) * 64;
-            if (ptInRect(x, y, x1, 126, x1 + 58, 158)) {
+            const x1: i32 = 114 + @as(i32, @intCast(i)) * 60;
+            if (ptInRect(x, y, x1, 126, x1 + 54, 158)) {
                 g_active_fmt = @enumFromInt(@as(u32, @intCast(i)));
                 _ = w.InvalidateRect(hwnd, null, 0);
                 return;
@@ -422,8 +428,8 @@ fn handleClick(hwnd: w.HWND, x: i32, y: i32) void {
         }
         var l: usize = 0;
         while (l < 3) : (l += 1) {
-            const x1: i32 = 114 + @as(i32, @intCast(l)) * 52;
-            if (ptInRect(x, y, x1, 168, x1 + 46, 200)) {
+            const x1: i32 = 114 + @as(i32, @intCast(l)) * 50;
+            if (ptInRect(x, y, x1, 168, x1 + 44, 200)) {
                 g_cfg.lang = @enumFromInt(@as(u32, @intCast(l)));
                 _ = w.InvalidateRect(hwnd, null, 0);
                 return;
@@ -435,7 +441,6 @@ fn handleClick(hwnd: w.HWND, x: i32, y: i32) void {
         }
     }
 }
-
 fn isValidFilenameChar(ch: u16) bool {
     if (ch < 0x20) return false;
     return switch (ch) {
@@ -466,6 +471,9 @@ fn overlayWndProc(hwnd: w.HWND, uMsg: w.UINT, wParam: w.WPARAM, lParam: w.LPARAM
                     g_switch_anim += diff * 0.35;
                 }
                 _ = w.InvalidateRect(hwnd, null, 0);
+            } else if (wParam == TIMER_CARET) {
+                g_caret_visible = !g_caret_visible;
+                _ = w.InvalidateRect(hwnd, null, 0);
             }
             return 0;
         },
@@ -495,6 +503,8 @@ fn overlayWndProc(hwnd: w.HWND, uMsg: w.UINT, wParam: w.WPARAM, lParam: w.LPARAM
             return 0;
         },
         w.WM_CHAR => {
+            g_caret_visible = true;
+            _ = w.SetTimer(hwnd, TIMER_CARET, 530, null);
             const ch: u16 = @truncate(wParam);
             if (ch == 0x08) {
                 if (g_input_len > 0) {

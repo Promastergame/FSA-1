@@ -30,7 +30,7 @@
 zig build -Doptimize=ReleaseSmall
 ```
 
-Итоговый файл: zig-out/bin/fsa1.exe.
+Итоговый файл: `zig-out/bin/fsa1.exe`.
 
 ## Лицензия
 Двойная лицензия: [MIT](LICENSE) OR [LGPL-3.0](COPYING).

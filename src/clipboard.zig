@@ -126,39 +126,45 @@ fn detectFormatFromText(text: []const u8) ?config.Format {
     return null;
 }
 
+fn extractImgSrc(html: []const u8) ?[]const u8 {
+    var search_slice = html;
+    if (std.mem.indexOf(u8, html, "<img") orelse std.mem.indexOf(u8, html, "<IMG")) |img_pos| {
+        search_slice = html[img_pos..];
+    }
+    if (std.mem.indexOf(u8, search_slice, "src=\"") orelse std.mem.indexOf(u8, search_slice, "SRC=\"")) |src_pos| {
+        const rest = search_slice[src_pos + 5 ..];
+        const end = std.mem.indexOfScalar(u8, rest, '"') orelse rest.len;
+        return rest[0..end];
+    } else if (std.mem.indexOf(u8, search_slice, "src='") orelse std.mem.indexOf(u8, search_slice, "SRC='")) |src_pos| {
+        const rest = search_slice[src_pos + 5 ..];
+        const end = std.mem.indexOfScalar(u8, rest, '\'') orelse rest.len;
+        return rest[0..end];
+    }
+    return null;
+}
+
 fn parseFormatFromHtml(html: []const u8) ?config.Format {
-    // 1. Check SourceURL: header if present
     if (std.mem.indexOf(u8, html, "SourceURL:")) |url_pos| {
         const rest = html[url_pos + 10 ..];
         const end = std.mem.indexOfAny(u8, rest, "\r\n") orelse rest.len;
         if (detectFormatFromText(rest[0..end])) |fmt| return fmt;
     }
 
-    // 2. Check <img ...> attributes
+    if (extractImgSrc(html)) |src| {
+        if (detectFormatFromText(src)) |fmt| return fmt;
+    }
+
     var search_slice = html;
     if (std.mem.indexOf(u8, html, "<img") orelse std.mem.indexOf(u8, html, "<IMG")) |img_pos| {
         search_slice = html[img_pos..];
     }
 
-    // Check src
-    if (std.mem.indexOf(u8, search_slice, "src=\"") orelse std.mem.indexOf(u8, search_slice, "SRC=\"")) |src_pos| {
-        const rest = search_slice[src_pos + 5 ..];
-        const end = std.mem.indexOfScalar(u8, rest, '"') orelse rest.len;
-        if (detectFormatFromText(rest[0..end])) |fmt| return fmt;
-    } else if (std.mem.indexOf(u8, search_slice, "src='") orelse std.mem.indexOf(u8, search_slice, "SRC='")) |src_pos| {
-        const rest = search_slice[src_pos + 5 ..];
-        const end = std.mem.indexOfScalar(u8, rest, '\'') orelse rest.len;
-        if (detectFormatFromText(rest[0..end])) |fmt| return fmt;
-    }
-
-    // Check alt
     if (std.mem.indexOf(u8, search_slice, "alt=\"") orelse std.mem.indexOf(u8, search_slice, "ALT=\"")) |alt_pos| {
         const rest = search_slice[alt_pos + 5 ..];
         const end = std.mem.indexOfScalar(u8, rest, '"') orelse rest.len;
         if (detectFormatFromText(rest[0..end])) |fmt| return fmt;
     }
 
-    // 3. Fallback: scan whole HTML fragment
     return detectFormatFromText(html);
 }
 
@@ -192,8 +198,6 @@ pub fn saveClipboardImage(
     if (w.OpenClipboard(null) == 0) return false;
     defer _ = w.CloseClipboard();
 
-    // If saving as PNG and raw PNG bytes are on the clipboard, write directly!
-    // This retains 100% original quality and alpha channel without GDI conversion.
     const cf_png = w.RegisterClipboardFormatW(L("PNG"));
     if (fmt == .png and cf_png != 0 and w.IsClipboardFormatAvailable(cf_png) != 0) {
         if (w.GetClipboardData(cf_png)) |hdata| {
@@ -234,7 +238,7 @@ pub fn saveClipboardImage(
             EncoderParameter{
                 .Guid = ENC_QUALITY_GUID,
                 .NumberOfValues = 1,
-                .Type = 4, // EncoderParameterValueTypeLong
+                .Type = 4,
                 .Value = &quality,
             },
         },
